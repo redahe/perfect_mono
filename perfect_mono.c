@@ -1,6 +1,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#include <GL/gl.h>
+#include <GL/glu.h>
 #include <GL/glut.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -33,6 +35,7 @@ CharEntry chars[CHAR_SET_SIZE];
 FT_Library ft_handle;
 FT_Face ft_face;
 
+
 void init_freetype() {
     if (FT_Init_FreeType(&ft_handle)) {
         fprintf(stderr, "FreeType failed to init");
@@ -53,14 +56,14 @@ void init_freetype() {
 
 
 
-GLuint load_char(GLuint index) {
+Character load_char(GLuint index) {
     if (index > CHAR_SET_SIZE) {
         fprintf(stderr, "Char index is too big");
         exit(-1);
     }
 
     if (chars[index].initialized) {
-        return chars[index].character.texture_id; 
+        return chars[index].character; 
     }
 
     // Load character glyph 
@@ -101,17 +104,91 @@ GLuint load_char(GLuint index) {
         character,
         true
    };
-   return texture;
+   return character;
 }
 
+
+void draw_text(GLfloat x, GLfloat y, GLfloat scale, char* text) {
+
+    glActiveTexture(GL_TEXTURE0);
+
+    while (*text != '\0') {
+        Character chr = load_char(*text);
+        GLfloat cx = x + chr.bearing_x * scale;
+        GLfloat cy = y - (chr.size_y - chr.bearing_y) * scale;
+        
+        GLfloat vertices[6][2] = {
+            { cx, cy + chr.size_y },            
+            { cx, cy },
+            { cx + chr.size_x, cy },
+            { cx, cy + chr.size_y },
+            { cx + chr.size_x, cy },
+            { cx + chr.size_x, cy + chr.size_y }           
+        };
+       GLfloat tex_coords[6][2] = {
+            { 0.0, 0.0 },            
+            { 0.0, 1.0 },
+            { 1.0, 1.0 },
+
+            { 0.0, 0.0 },
+            { 1.0, 1.0 },
+            { 1.0, 0.0 }           
+        };
+
+
+        glColor3f(0.2f, 1.0f, 0.0f);
+        printf("%d\n", chr.texture_id);
+        glBindTexture(GL_TEXTURE_2D, chr.texture_id);
+
+        glBegin(GL_TRIANGLES);
+        glTexCoord2f(tex_coords[0][0], tex_coords[0][1]);
+        glVertex2f(vertices[0][0], vertices[0][1]);
+
+        glTexCoord2f(tex_coords[1][0], tex_coords[1][1]);
+        glVertex2f(vertices[1][0], vertices[1][1]);
+
+        glTexCoord2f(tex_coords[2][0], tex_coords[2][1]);
+        glVertex2f(vertices[2][0], vertices[2][1]);
+
+        glTexCoord2f(tex_coords[3][0], tex_coords[3][1]);
+        glVertex2f(vertices[3][0], vertices[3][1]);
+
+        glTexCoord2f(tex_coords[4][0], tex_coords[4][1]);
+        glVertex2f(vertices[4][0], vertices[4][1]);
+
+        glTexCoord2f(tex_coords[5][0], tex_coords[5][1]);
+        glVertex2f(vertices[5][0], vertices[5][1]);
+        glEnd();
+
+        printf("%.1f\n", vertices[0][0]);
+        printf("%.1f\n", vertices[0][1]);
+
+        /*
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+        glTexCoordPointer(2, GL_FLOAT, 0, tex_coords);
+        glVertexPointer(2, GL_FLOAT, 0, vertices);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        */
+
+        x += (chr.advance >> 6) * scale; 
+        text++;
+   } 	
+    glBindTexture(GL_TEXTURE_2D, 0);                                                                     
+}
 
 void draw(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBegin(GL_LINES);
     glColor3f(1.0f, 0.0f, 0.0f);
-    glVertex2f(-0.5f, -0.3f);
-    glVertex2f(0.5f, 0.3f);
+    glVertex2f(5.0f, 3.0f);
+    glVertex2f(25.0f, 30.0f);
     glEnd();
+    draw_text(10.0f, 10.0f, 1, "dima");
     glutSwapBuffers();
 }
 
@@ -119,7 +196,9 @@ void reshape(GLint width, GLint height) {
     window_width = width;
     window_height = height;
     glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+    glOrtho(0, window_width, window_height, 0, 0, 1);
 }
 
 void idle(void) {
