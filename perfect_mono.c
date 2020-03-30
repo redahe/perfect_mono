@@ -18,9 +18,9 @@ typedef struct {
     GLuint texture_id;
     GLuint size_x;  
     GLuint size_y;
-    GLuint bearing_x;
-    GLuint bearing_y;
-    GLuint advance;
+    GLint bearing_x;
+    GLint bearing_y;
+    GLint advance;
 } Character;
 
 typedef struct {
@@ -108,12 +108,12 @@ Character load_char(GLuint index) {
 }
 
 
-void draw_text(GLfloat x, GLfloat y, GLfloat scale, char* text) {
+void draw_text(GLdouble x, GLdouble y, GLfloat scale, char* text) {
 
     while (*text != '\0') {
         Character chr = load_char(*text);
-        GLfloat cx = x - chr.bearing_x * scale;
-        GLfloat cy = y - chr.bearing_y * scale;
+        GLdouble cx = x + chr.bearing_x * scale;
+        GLdouble cy = y - chr.bearing_y * scale;
         
         GLfloat vertices[6][2] = {
             { cx, cy + chr.size_y * scale },            
@@ -133,6 +133,17 @@ void draw_text(GLfloat x, GLfloat y, GLfloat scale, char* text) {
             { 1.0, 0.0 },
             { 1.0, 1.0 },
         };
+
+        fprintf(stdout, " char %c\n", (*text));
+        fprintf(stdout, " scale*bearing_x  %f\n", scale*chr.bearing_x);
+        fprintf(stdout, " cx %f\n", cx);
+        fprintf(stdout, " cy %f\n", cy);
+        fprintf(stdout, " bearing_x %d\n", chr.bearing_x);
+        fprintf(stdout, " bearing_y %d\n", chr.bearing_y);
+
+        fprintf(stdout, " Size x %d\n", chr.size_x);
+        fprintf(stdout, " Size y %d\n", chr.size_y);
+        fprintf(stdout, " ------ \n");
 
 
         glColor3f(1.0f, 1.0f, 1.0f);
@@ -167,8 +178,8 @@ void draw_text(GLfloat x, GLfloat y, GLfloat scale, char* text) {
 
 void draw(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    draw_text(40.0f, 80.0f, 1.0, "abcdefghijklmnopqrstuvwxyz!");
-    // draw_text(0.0f, 30.0f, 1, "!,.--Dima-123=+()[]Zz!");
+    draw_text(40.0, 65.0, 1.0, "Hello world! Does it look normal?!");
+    draw_text(0.0f, 30.0f, 1, "!,.--Dima-123=+()[]Zz!");
     glutSwapBuffers();
 }
 
