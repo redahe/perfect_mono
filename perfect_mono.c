@@ -1,185 +1,22 @@
-#include <ft2build.h>
-#include FT_FREETYPE_H
-
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glut.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+
+#include "text_render.h"
 
 static int window_height = 600;
 static int window_width = 600;
 
 static struct timeval last_time;
 
-typedef struct {
-    GLuint texture_id;
-    GLuint size_x;  
-    GLuint size_y;
-    GLint bearing_x;
-    GLint bearing_y;
-    GLint advance;
-} Character;
-
-typedef struct {
-    Character character;
-    bool initialized;
-} CharEntry;
-
-#define CHAR_SET_SIZE 140000
-
-CharEntry chars[CHAR_SET_SIZE];
-
-FT_Library ft_handle;
-FT_Face ft_face;
-
-
-void init_freetype() {
-    if (FT_Init_FreeType(&ft_handle)) {
-        fprintf(stderr, "FreeType failed to init");
-        exit(-1);
-    }
-
-    if (FT_New_Face(ft_handle, "fonts/LDFComicSans.ttf", 0, &ft_face)) {
-        fprintf(stderr, "Freetype failed to load font");
-        exit(-1);
-    }
-  
-    FT_Set_Pixel_Sizes(ft_face, 0, 32);   
-    if (FT_Load_Char(ft_face, 'A', FT_LOAD_RENDER)) {
-        fprintf(stderr, "Freetype failed to load glyph");
-        exit(-1);
-    }
-}
-
-
-
-Character load_char(GLuint index) {
-    if (index > CHAR_SET_SIZE) {
-        fprintf(stderr, "Char index is too big");
-        exit(-1);
-    }
-
-    if (chars[index].initialized) {
-        return chars[index].character; 
-    }
-
-    // Load character glyph 
-    if (FT_Load_Char(ft_face, index, FT_LOAD_RENDER)) {
-        fprintf(stderr, "Freetype failed to load glyph");
-        exit(-1);
-    }
-    // Generate texture
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RED,
-        ft_face->glyph->bitmap.width,
-        ft_face->glyph->bitmap.rows,
-        0,
-        GL_RED,
-        GL_UNSIGNED_BYTE,
-        ft_face->glyph->bitmap.buffer
-    );
-    // Set texture options
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // Now store character for later use
-    Character character = {
-        texture, 
-        ft_face->glyph->bitmap.width,
-        ft_face->glyph->bitmap.rows,
-        ft_face->glyph->bitmap_left,
-        ft_face->glyph->bitmap_top,
-        ft_face->glyph->advance.x
-    };
-    chars[index] = (CharEntry) {
-        character,
-        true
-   };
-   return character;
-}
-
-
-void draw_text(GLdouble x, GLdouble y, GLfloat scale, char* text) {
-
-    while (*text != '\0') {
-        Character chr = load_char(*text);
-        GLdouble cx = x + chr.bearing_x * scale;
-        GLdouble cy = y - chr.bearing_y * scale;
-        
-        GLfloat vertices[6][2] = {
-            { cx, cy + chr.size_y * scale },            
-            { cx, cy },
-            { cx + chr.size_x * scale, cy },
-
-            { cx, cy + chr.size_y * scale},
-            { cx + chr.size_x * scale, cy },
-            { cx + chr.size_x * scale, cy + chr.size_y * scale}           
-        };
-       GLfloat tex_coords[6][2] = {
-            { 0.0, 1.0 },
-            { 0.0, 0.0 },            
-            { 1.0, 0.0 },
-
-            { 0.0, 1.0 },
-            { 1.0, 0.0 },
-            { 1.0, 1.0 },
-        };
-
-        fprintf(stdout, " char %c\n", (*text));
-        fprintf(stdout, " scale*bearing_x  %f\n", scale*chr.bearing_x);
-        fprintf(stdout, " cx %f\n", cx);
-        fprintf(stdout, " cy %f\n", cy);
-        fprintf(stdout, " bearing_x %d\n", chr.bearing_x);
-        fprintf(stdout, " bearing_y %d\n", chr.bearing_y);
-
-        fprintf(stdout, " Size x %d\n", chr.size_x);
-        fprintf(stdout, " Size y %d\n", chr.size_y);
-        fprintf(stdout, " ------ \n");
-
-
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glBindTexture(GL_TEXTURE_2D, chr.texture_id);
-
-        glBegin(GL_TRIANGLES);
-        glTexCoord2f(tex_coords[0][0], tex_coords[0][1]);
-        glVertex2f(vertices[0][0], vertices[0][1]);
-
-        glTexCoord2f(tex_coords[1][0], tex_coords[1][1]);
-        glVertex2f(vertices[1][0], vertices[1][1]);
-
-        glTexCoord2f(tex_coords[2][0], tex_coords[2][1]);
-        glVertex2f(vertices[2][0], vertices[2][1]);
-
-        glTexCoord2f(tex_coords[3][0], tex_coords[3][1]);
-        glVertex2f(vertices[3][0], vertices[3][1]);
-
-        glTexCoord2f(tex_coords[4][0], tex_coords[4][1]);
-        glVertex2f(vertices[4][0], vertices[4][1]);
-
-        glTexCoord2f(tex_coords[5][0], tex_coords[5][1]);
-        glVertex2f(vertices[5][0], vertices[5][1]);
-        glEnd();
-
-
-        x += (chr.advance >> 6) * scale; 
-        text++;
-   } 	
-   glBindTexture(GL_TEXTURE_2D, 0);                                      
-}
-
 void draw(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    draw_text(40.0, 65.0, 1.0, "Hello world! Does it look normal?!");
-    draw_text(0.0f, 30.0f, 1, "!,.--Dima-123=+()[]Zz!");
+    draw_text(0.0f, 100.0, 1.0, "Кирилица");
     glutSwapBuffers();
 }
 
@@ -231,8 +68,6 @@ int main(int argc, char** argv) {
 
     glutMainLoop();
   
-    FT_Done_Face(ft_face);
-    FT_Done_FreeType(ft_handle);
-
+    close_freetype();
     return 0;
 }

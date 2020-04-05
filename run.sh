@@ -1,2 +1,2 @@
-gcc perfect_mono.c  -I/usr/include/freetype2 -lGL -lGLU -lglut -lfreetype
-./a.out
+./build.sh
+./main
